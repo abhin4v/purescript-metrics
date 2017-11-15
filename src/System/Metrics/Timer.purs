@@ -3,6 +3,7 @@ module System.Metrics.Timer
   , Summary
   , new
   , update
+  , time
   , fifteenMinuteRate
   , fiveMinuteRate
   , oneMinuteRate
@@ -20,8 +21,12 @@ module System.Metrics.Timer
 
 import Prelude
 
+import Control.Monad.Aff (Aff)
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Now (NOW, now)
 import Control.Monad.Eff.Ref (REF)
+import Data.DateTime.Instant (unInstant)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe)
@@ -43,6 +48,14 @@ update (Timer { meter, histogram }) d = do
   let (Milliseconds ms) = fromDuration d
   Histogram.update histogram ms
   Meter.mark meter
+
+time :: forall a eff. Timer -> Aff (ref :: REF, now :: NOW | eff) a -> Aff (ref :: REF, now :: NOW | eff) a
+time timer f = do
+  start <- liftEff now
+  r <- f
+  end <- liftEff now
+  liftEff $ update timer (unInstant end - unInstant start)
+  pure r
 
 fifteenMinuteRate :: forall eff. Timer -> Eff (ref :: REF | eff) Number
 fifteenMinuteRate (Timer { meter }) = Meter.fifteenMinuteRate meter
