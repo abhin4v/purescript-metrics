@@ -16,15 +16,19 @@ module System.Metrics.Histogram
   , read
   ) where
 
+import Prelude
+
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Ref (REF)
 import Data.Array (index)
+import Data.Foreign.Class (class Encode, encode)
+import Data.Foreign.Generic (defaultOptions, genericEncode)
+import Data.Foreign.NullOrUndefined (NullOrUndefined(..))
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe)
 import Data.Nullable (Nullable, toMaybe)
-import Prelude
 
 foreign import data Histogram :: Type
 foreign import _newWithExponentialDecaySampling ::
@@ -85,10 +89,46 @@ newtype Summary = Summary {
   , p999     :: Maybe Number
 }
 
-derive instance eqSummary :: Eq Summary
-derive instance genericSummary :: Generic Summary _
-instance showSummary :: Show Summary where
+derive instance eqHSummary :: Eq Summary
+derive instance genericHSummary :: Generic Summary _
+instance showHSummary :: Show Summary where
   show = genericShow
+instance encodeHSummary :: Encode Summary where
+  encode = fromSummary >>> encode
+
+newtype Summary' = Summary' {
+    min      :: NullOrUndefined Number
+  , max      :: NullOrUndefined Number
+  , sum      :: NullOrUndefined Number
+  , variance :: NullOrUndefined Number
+  , mean     :: NullOrUndefined Number
+  , stdDev   :: NullOrUndefined Number
+  , count    :: Int
+  , median   :: NullOrUndefined Number
+  , p75      :: NullOrUndefined Number
+  , p95      :: NullOrUndefined Number
+  , p99      :: NullOrUndefined Number
+  , p999     :: NullOrUndefined Number
+}
+
+fromSummary :: Summary -> Summary'
+fromSummary (Summary { min , max , sum , variance , mean , stdDev , count , median , p75 , p95 , p99 , p999 }) =
+  Summary' { min: NullOrUndefined min
+           , max: NullOrUndefined max
+           , sum: NullOrUndefined sum
+           , variance: NullOrUndefined variance
+           , mean: NullOrUndefined mean
+           , stdDev: NullOrUndefined stdDev
+           , count: count
+           , median: NullOrUndefined median
+           , p75: NullOrUndefined p75
+           , p95: NullOrUndefined p95
+           , p99: NullOrUndefined p99
+           , p999: NullOrUndefined p999 }
+
+derive instance genericHSummary' :: Generic Summary' _
+instance encodeHSummary' :: Encode Summary' where
+  encode = genericEncode $ defaultOptions { unwrapSingleConstructors = true }
 
 read :: forall eff. Histogram -> Eff (ref :: REF | eff) Summary
 read h = do

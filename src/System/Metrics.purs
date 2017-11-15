@@ -28,6 +28,8 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (EXCEPTION, throw)
 import Control.Monad.Eff.Ref (REF, Ref, modifyRef', newRef, readRef)
+import Data.Foreign.Class (class Encode)
+import Data.Foreign.Generic (defaultOptions, genericEncode)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Map as Map
@@ -185,6 +187,8 @@ derive instance eqVal :: Eq Value
 derive instance genVal :: Generic Value _
 instance showVal :: Show Value where
   show = genericShow
+instance encodeVal :: Encode Value where
+  encode = genericEncode $ defaultOptions { unwrapSingleConstructors = true }
 
 sampleOne :: forall eff. MetricSampler -> Aff (ref :: REF | eff) Value
 sampleOne (CounterS c) = CounterV <$> liftEff (Counter.read c)

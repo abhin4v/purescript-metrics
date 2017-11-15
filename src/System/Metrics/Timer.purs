@@ -27,6 +27,8 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Now (NOW, now)
 import Control.Monad.Eff.Ref (REF)
 import Data.DateTime.Instant (unInstant)
+import Data.Foreign.Class (class Encode)
+import Data.Foreign.Generic (defaultOptions, genericEncode)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe)
@@ -95,10 +97,12 @@ count (Timer { histogram }) = Histogram.count histogram
 
 newtype Summary = Summary { duration :: Histogram.Summary, rate :: Meter.Summary }
 
-derive instance eqSummary :: Eq Summary
-derive instance genericSummary :: Generic Summary _
-instance showSummary :: Show Summary where
+derive instance eqTSummary :: Eq Summary
+derive instance genericTSummary :: Generic Summary _
+instance showTSummary :: Show Summary where
   show = genericShow
+instance encodeTSummary :: Encode Summary where
+  encode = genericEncode $ defaultOptions { unwrapSingleConstructors = true }
 
 read :: forall eff. Timer -> Eff (ref :: REF | eff) Summary
 read (Timer { meter, histogram }) =

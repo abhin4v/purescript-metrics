@@ -14,10 +14,12 @@ module System.Metrics.Meter
 
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Ref (REF)
+import Data.Foreign.Class (class Encode)
+import Data.Foreign.Generic (defaultOptions, genericEncode)
 import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
-import Prelude (class Eq, class Show, Unit, (<$>), (<*>))
+import Prelude
 
 foreign import data Meter :: Type
 foreign import _new :: forall eff. Eff (ref :: REF | eff) Meter
@@ -45,10 +47,12 @@ newtype Summary = Summary {
                   , mean :: Number
                   }
 
-derive instance eqSummary :: Eq Summary
-derive instance genericSummary :: Generic Summary _
-instance showSummary :: Show Summary where
+derive instance eqMSummary :: Eq Summary
+derive instance genericMSummary :: Generic Summary _
+instance showMSummary :: Show Summary where
   show = genericShow
+instance encodeMSummary :: Encode Summary where
+  encode = genericEncode $ defaultOptions { unwrapSingleConstructors = true }
 
 read :: forall eff. Meter -> Eff (ref :: REF | eff) Summary
 read m = Summary <$> ({  count: _
