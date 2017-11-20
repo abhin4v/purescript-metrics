@@ -26,9 +26,19 @@ var _percentiles = function(h, ptiles) {
   };
 };
 
-var _variance = function(h) { return function() { return h.variance(); }; };
+var _variance = function(h) {
+  return function() {
+    var v = h.variance();
+    return isNaN(v) ? null : v;
+  };
+};
 var _mean = function(h) { return function() { return h.mean(); }; };
-var _stdDev = function(h) { return function() { return h.stdDev(); }; };
+var _stdDev = function(h) {
+  return function() {
+    var d = h.stdDev();
+    return isNaN(d) ? null : d;
+  };
+};
 var _min = function(h) { return function() { return h.min; }; };
 var _max = function(h) { return function() { return h.max; }; };
 var _sum = function(h) { return function() { return h.sum; }; };
