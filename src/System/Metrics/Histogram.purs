@@ -1,6 +1,6 @@
 module System.Metrics.Histogram
   ( Histogram
-  , Summary
+  , Summary(..)
   , newWithExponentialDecaySampling
   , newWithUniformSampling
   , clear
@@ -30,11 +30,16 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe)
 import Data.Nullable (Nullable, toMaybe)
 
+-- | A mutable distribution of values in a stream of data.
 foreign import data Histogram :: Type
 foreign import _newWithExponentialDecaySampling ::
   forall eff. Fn2 Int Number (Eff (ref :: REF | eff) Histogram)
+
+-- | Creates a new histogram with uniform sampling with the given size.
 foreign import newWithUniformSampling ::
   forall eff. Int -> Eff (ref :: REF | eff) Histogram
+
+-- | Clears the histogram.
 foreign import clear :: forall eff. Histogram -> Eff (ref :: REF | eff) Unit
 foreign import _update :: forall eff. Fn2 Histogram Number (Eff (ref :: REF | eff) Unit)
 foreign import _percentiles
@@ -45,35 +50,68 @@ foreign import _stdDev :: forall eff. Histogram -> Eff (ref :: REF | eff) (Nulla
 foreign import _min :: forall eff. Histogram -> Eff (ref :: REF | eff) (Nullable Number)
 foreign import _max :: forall eff. Histogram -> Eff (ref :: REF | eff) (Nullable Number)
 foreign import _sum :: forall eff. Histogram -> Eff (ref :: REF | eff) (Nullable Number)
+
+-- | Returns the count of measurements in the histogram.
 foreign import count :: forall eff. Histogram -> Eff (ref :: REF | eff) Int
 
+-- | Creates a new histogram with exponential decay sampling with given size and alpha.
 newWithExponentialDecaySampling :: forall eff. Int -> Number -> Eff (ref :: REF | eff) Histogram
 newWithExponentialDecaySampling = runFn2 _newWithExponentialDecaySampling
 
+-- | Updates the histogram with the given measurement.
 update :: forall eff. Histogram -> Number -> Eff (ref :: REF | eff) Unit
 update = runFn2 _update
 
+-- | Returns the percentiles of the measurements in the histogram for the given percentiles array.
+-- | Returns 'Nothing' if there are no measurements.
 percentiles :: forall eff. Histogram -> Array Number -> Eff (ref :: REF | eff) (Maybe (Array Number))
 percentiles h ptiles = toMaybe <$> runFn2 _percentiles h ptiles
 
+-- | Returns the variance of the measurements in the histogram.
+-- | Returns 'Nothing' if there are no measurements.
 variance :: forall eff. Histogram -> Eff (ref :: REF | eff) (Maybe Number)
 variance h = toMaybe <$> _variance h
 
+-- | Returns the mean of the measurements in the histogram.
+-- | Returns 'Nothing' if there are no measurements.
 mean :: forall eff. Histogram -> Eff (ref :: REF | eff) (Maybe Number)
 mean h = toMaybe <$> _mean h
 
+-- | Returns the standard deviation of the measurements in the histogram.
+-- | Returns 'Nothing' if there are no measurements.
 stdDev :: forall eff. Histogram -> Eff (ref :: REF | eff) (Maybe Number)
 stdDev h = toMaybe <$> _stdDev h
 
+-- | Returns the minimum of the measurements in the histogram.
+-- | Returns 'Nothing' if there are no measurements.
 min :: forall eff. Histogram -> Eff (ref :: REF | eff) (Maybe Number)
 min h = toMaybe <$> _min h
 
+-- | Returns the maximum of the measurements in the histogram.
+-- | Returns 'Nothing' if there are no measurements.
 max :: forall eff. Histogram -> Eff (ref :: REF | eff) (Maybe Number)
 max h = toMaybe <$> _max h
 
+-- | Returns the sum of the measurements in the histogram.
+-- | Returns 'Nothing' if there are no measurements.
 sum :: forall eff. Histogram -> Eff (ref :: REF | eff) (Maybe Number)
 sum h = toMaybe <$> _sum h
 
+-- | Summary of the distribution of the measurements in the histogram.
+-- | Contains:
+-- |
+-- | - min: minimum
+-- | - max: maximum
+-- | - sum: sum
+-- | - variance: variance
+-- | - mean: mean
+-- | - stdDev: standard deviation
+-- | - count: count
+-- | - median: median
+-- | - p75: 75th percentile
+-- | - p95: 95th percentile
+-- | - p99: 99th percentile
+-- | - p999: 99.9th percentile
 newtype Summary = Summary {
     min      :: Maybe Number
   , max      :: Maybe Number
@@ -130,6 +168,7 @@ derive instance genericHSummary' :: Generic Summary' _
 instance encodeHSummary' :: Encode Summary' where
   encode = genericEncode $ defaultOptions { unwrapSingleConstructors = true }
 
+-- | Returns the summary of the measurements in the histogram.
 read :: forall eff. Histogram -> Eff (ref :: REF | eff) Summary
 read h = do
   ptiles <- percentiles h [0.5, 0.75, 0.95, 0.99, 0.999]

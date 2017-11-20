@@ -12,7 +12,7 @@
   , registerMeter
   , registerTimer
   , createOrGetCounter
-  , createOrGetGuage
+  , createOrGetGauge
   , createOrGetHistogramWithExponentialDecaySampling
   , createOrGetHistogramWithUniformSampling
   , createOrGetMeter
@@ -52,18 +52,22 @@ newtype Store = Store (Ref State)
 -- | The 'Store' state.
 type State = Map.Map String MetricSampler
 
+-- | Different types of metric samplers.
 data MetricSampler = CounterS Counter
                    | GaugeS Gauge
                    | HistogramS Histogram
                    | MeterS Meter
                    | TimerS Timer
 
--- | Create a new, empty metric store.
+-- | Creates a new, empty metric store.
 newStore ::forall eff. Eff (ref :: REF | eff) Store
 newStore = do
   ref <- newRef Map.empty
   pure $ Store ref
 
+-- | Registers a metric sampler with the given name, to the given metric store.
+-- | Returns true if registration succeeds, false if registration fails because another metric sampler
+-- | is already registered with the given name.
 register :: forall eff.
             String -> MetricSampler -> Store -> Eff (ref :: REF | eff) Boolean
 register name sampler (Store store) = modifyRef' store $ \state ->
@@ -71,6 +75,8 @@ register name sampler (Store store) = modifyRef' store $ \state ->
     Just s -> { state : state, value : false }
     Nothing -> { state : Map.insert name sampler state, value : true }
 
+-- | Registers and returns a metric sampler with the given name, to the given metric store if another one
+-- | is not registered with the given name. Else, returns the metric sampler registered with the given name.
 registerOrGet :: forall eff.
             String -> MetricSampler -> Store -> Eff (ref :: REF | eff) MetricSampler
 registerOrGet name sampler (Store store) = modifyRef' store $ \state ->
@@ -78,17 +84,20 @@ registerOrGet name sampler (Store store) = modifyRef' store $ \state ->
     Just s -> { state : state, value : s }
     Nothing -> { state : Map.insert name sampler state, value : sampler }
 
+-- | Returns a metric sampler registered to the given metric store with the given name.
 get :: forall eff. String -> Store -> Eff (ref :: REF | eff) (Maybe MetricSampler)
 get name (Store store) = readRef store >>= pure <<< Map.lookup name
 
--- | Register a non-negative, monotonically increasing, integer-valued metric.
--- |
--- | Also see 'createCounter'.
+-- | Register a Counter with the given name to the given store.
+-- | Returns true if registration succeeds, false if registration fails because another metric sampler
+-- | is already registered with the given name.
 registerCounter :: forall eff.
                    String -> Counter -> Store -> Eff (ref :: REF | eff) Boolean
 registerCounter name counter = register name (CounterS counter)
 
--- | Create and register a zero-initialized counter. Throw exception is the counter is already created.
+-- | Creates, registers and returns a Counter with the given name to the given store.
+-- | If a Counter is already registered with the given name, returns it.
+-- | Throws exception if a non-Counter metric sampler is already registered with the given name.
 createOrGetCounter :: forall eff.
                  String
               -> Store
@@ -99,29 +108,37 @@ createOrGetCounter name store = do
     CounterS c -> pure c
     _ -> throw $ "Metric name is already registered: " <> name
 
--- | Register an integer-valued metric.
--- |
--- | Also see 'createGuage'.
+-- | Register a Gauge with the given name to the given store.
+-- | Returns true if registration succeeds, false if registration fails because another metric sampler
+-- | is already registered with the given name.
 registerGauge :: forall eff.
                  String -> Gauge -> Store -> Eff (ref :: REF | eff) Boolean
 registerGauge name gauge = register name (GaugeS gauge)
 
--- | Create and register a guage. Throw exception is the guage is already created.
-createOrGetGuage :: forall eff.
+-- | Creates, registers and returns a Gauge with the given name to the given store.
+-- | If a Gauge is already registered with the given name, returns it.
+-- | Throws exception if a non-Gauge metric sampler is already registered with the given name.
+createOrGetGauge :: forall eff.
                String
             -> (forall e. Aff e Int)
             -> Store
             -> Eff (ref :: REF, exception :: EXCEPTION | eff) Gauge
-createOrGetGuage name f store = do
+createOrGetGauge name f store = do
   let gauge = Gauge.new f
   registerOrGet name (GaugeS gauge) store >>= case _ of
     GaugeS g -> pure g
     _ -> throw $ "Metric name is already registered: " <> name
 
+-- | Register a Histogram with the given name to the given store.
+-- | Returns true if registration succeeds, false if registration fails because another metric sampler
+-- | is already registered with the given name.
 registerHistogram :: forall eff.
                      String -> Histogram -> Store -> Eff (ref :: REF | eff) Boolean
 registerHistogram name hist = register name (HistogramS hist)
 
+-- | Creates, registers and returns a Histogram with exponential decay sampling, with the given name to the given store.
+-- | If a Histogram is already registered with the given name, returns it.
+-- | Throws exception if a non-Histogram metric sampler is already registered with the given name.
 createOrGetHistogramWithExponentialDecaySampling
   :: forall eff.
      String
@@ -135,6 +152,9 @@ createOrGetHistogramWithExponentialDecaySampling name size alpha store = do
     HistogramS c -> pure c
     _ -> throw $ "Metric name is already registered: " <> name
 
+-- | Creates, registers and returns a Histogram with uniform sampling, with the given name to the given store.
+-- | If a Histogram is already registered with the given name, returns it.
+-- | Throws exception if a non-Histogram metric sampler is already registered with the given name.
 createOrGetHistogramWithUniformSampling
   :: forall eff.
      String
@@ -147,9 +167,15 @@ createOrGetHistogramWithUniformSampling name size store = do
     HistogramS c -> pure c
     _ -> throw $ "Metric name is already registered: " <> name
 
+-- | Register a Meter with the given name to the given store.
+-- | Returns true if registration succeeds, false if registration fails because another metric sampler
+-- | is already registered with the given name.
 registerMeter :: forall eff. String -> Meter -> Store -> Eff (ref :: REF | eff) Boolean
 registerMeter name meter = register name (MeterS meter)
 
+-- | Creates, registers and returns a Meter with the given name to the given store.
+-- | If a Meter is already registered with the given name, returns it.
+-- | Throws exception if a non-Meter metric sampler is already registered with the given name.
 createOrGetMeter
   :: forall eff.
      String
@@ -161,9 +187,15 @@ createOrGetMeter name store = do
     MeterS c -> pure c
     _ -> throw $ "Metric name is already registered: " <> name
 
+-- | Register a Timer with the given name to the given store.
+-- | Returns true if registration succeeds, false if registration fails because another metric sampler
+-- | is already registered with the given name.
 registerTimer :: forall eff. String -> Timer -> Store -> Eff (ref :: REF | eff) Boolean
 registerTimer name timer = register name (TimerS timer)
 
+-- | Creates, registers and returns a Timer with the given name to the given store.
+-- | If a Timer is already registered with the given name, returns it.
+-- | Throws exception if a non-Timer metric sampler is already registered with the given name.
 createOrGetTimer
   :: forall eff.
      String
@@ -175,8 +207,11 @@ createOrGetTimer name store = do
     TimerS c -> pure c
     _ -> throw $ "Metric name is already registered: " <> name
 
+-- | A sample of the metics in a metric store represented as a map with the metric names as the keys.
 type Sample = Map.Map String Value
 
+-- | Value of different metric samplers. Counter and Gauge values are their Int values.
+-- | Histogram, Meter, and Timer values are the summary records of their values.
 data Value = CounterV Int
            | GaugeV Int
            | HistogramV Histogram.Summary
@@ -190,6 +225,7 @@ instance showVal :: Show Value where
 instance encodeVal :: Encode Value where
   encode = genericEncode $ defaultOptions { unwrapSingleConstructors = true }
 
+-- | Samples the value of a metric sampler.
 sampleOne :: forall eff. MetricSampler -> Aff (ref :: REF | eff) Value
 sampleOne (CounterS c) = CounterV <$> liftEff (Counter.read c)
 sampleOne (GaugeS g) = GaugeV <$> Gauge.read g
@@ -197,6 +233,7 @@ sampleOne (HistogramS h) = HistogramV <$> liftEff (Histogram.read h)
 sampleOne (MeterS h) = MeterV <$> liftEff (Meter.read h)
 sampleOne (TimerS h) = TimerV <$> liftEff (Timer.read h)
 
+-- | Samples the value of all metric samplers in the given store.
 sample :: forall eff. Store -> Aff (ref :: REF | eff) Sample
 sample (Store store) = do
   state <- liftEff $ readRef store
@@ -205,7 +242,7 @@ sample (Store store) = do
 -- main = do
 --   store <- newStore
 --   counter <- createOrGetCounter "testc" store
---   gauge <- createOrGetGuage "testg" (pure 3) store
+--   gauge <- createOrGetGauge "testg" (pure 3) store
 --   hist <- createOrGetHistogramWithExponentialDecaySampling "hizz" 1028 0.015 store
 --   meter <- createOrGetMeter "mmm" store
 --   timer <- createOrGetTimer "ttt" store
