@@ -1,5 +1,7 @@
 {
   "name": "purescript-metrics",
+  "description": "A PureScript metrics library.",
+  "license": "MIT",
   "ignore": [
     "**/.*",
     "node_modules",
@@ -16,5 +18,11 @@
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"
+  },
+  "keywords": ["metrics", "purescript"],
+  "authors": ["Abhinav Sarkar <abhinav@abhinavsarkar.net>"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abhin4v/purescript-metrics.git"
   }
 }
